@@ -17,3 +17,5 @@
 config.json
 storage.json
 vendor
+
+*.tar

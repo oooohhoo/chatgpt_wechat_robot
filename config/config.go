@@ -13,6 +13,8 @@ import (
 
 // Configuration 项目配置
 type Configuration struct {
+	// gpt base url
+	BaseUrl string `json:"base_url"`
 	// gpt apikey
 	ApiKey string `json:"api_key"`
 	// 自动通过好友
@@ -29,6 +31,8 @@ type Configuration struct {
 	ReplyPrefix string `json:"reply_prefix"`
 	// 清空会话口令
 	SessionClearToken string `json:"session_clear_token"`
+	// gpt system content
+	SystemContent string `json:"system_content"`
 }
 
 var config *Configuration
@@ -64,6 +68,7 @@ func LoadConfig() *Configuration {
 			}
 		}
 		// 有环境变量使用环境变量
+		BaseUrl := os.Getenv("BASE_URL")
 		ApiKey := os.Getenv("APIKEY")
 		AutoPass := os.Getenv("AUTO_PASS")
 		SessionTimeout := os.Getenv("SESSION_TIMEOUT")
@@ -72,6 +77,13 @@ func LoadConfig() *Configuration {
 		Temperature := os.Getenv("TEMPREATURE")
 		ReplyPrefix := os.Getenv("REPLY_PREFIX")
 		SessionClearToken := os.Getenv("SESSION_CLEAR_TOKEN")
+		SystemContent := os.Getenv("SYSTEM_CONTENT")
+		if BaseUrl != "" {
+			config.BaseUrl = BaseUrl
+		} else if config.BaseUrl == "" {
+			config.BaseUrl = "https://api.openai.com"
+		}
+
 		if ApiKey != "" {
 			config.ApiKey = ApiKey
 		}
@@ -110,6 +122,9 @@ func LoadConfig() *Configuration {
 		}
 		if SessionClearToken != "" {
 			config.SessionClearToken = SessionClearToken
+		}
+		if SystemContent != "" {
+			config.SystemContent = SystemContent
 		}
 
 	})

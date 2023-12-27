@@ -57,9 +57,11 @@ WORKDIR /app
 
 # 而是从上一个阶段构建的 builder容器中拉取
 COPY --from=builder /app/wechatbot .
-ADD supervisord.conf /etc/supervisord.conf
+# ADD supervisord.conf /etc/supervisord.conf
 ADD config.dev.json /app/config.dev.json
 RUN cp config.dev.json config.json
 
+ENTRYPOINT ["/app/wechatbot"]
+
 # 通过 Supervisor 管理服务
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+# CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]

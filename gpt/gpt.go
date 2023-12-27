@@ -13,6 +13,43 @@ import (
 	"github.com/qingconglaixueit/wechatbot/config"
 )
 
+type ChatGPTChatResponseBody struct {
+	ID      string                 `json:"id"`
+	Object  string                 `json:"object"`
+	Created int                    `json:"created"`
+	Model   string                 `json:"model"`
+	Choices []ChatChoiceItem       `json:"choices"`
+	Usage   map[string]interface{} `json:"usage"`
+	Error   struct {
+		Message string      `json:"message"`
+		Type    string      `json:"type"`
+		Param   interface{} `json:"param"`
+		Code    interface{} `json:"code"`
+	} `json:"error"`
+}
+
+type ChatChoiceItem struct {
+	Message      ChatGPTChatMessage `json:"message"`
+	Index        int                `json:"index"`
+	Logprobs     int                `json:"logprobs"`
+	FinishReason string             `json:"finish_reason"`
+}
+
+type ChatGPTChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type ChatGPTChatRequestBody struct {
+	Model            string               `json:"model"`
+	Messages         []ChatGPTChatMessage `json:"messages"`
+	MaxTokens        uint                 `json:"max_tokens"`
+	Temperature      float64              `json:"temperature"`
+	TopP             int                  `json:"top_p"`
+	FrequencyPenalty int                  `json:"frequency_penalty"`
+	PresencePenalty  int                  `json:"presence_penalty"`
+}
+
 // ChatGPTResponseBody 请求体
 type ChatGPTResponseBody struct {
 	ID      string                 `json:"id"`
@@ -48,12 +85,12 @@ type ChatGPTRequestBody struct {
 }
 
 // Completions gtp文本模型回复
-//curl https://api.openai.com/v1/completions
-//-H "Content-Type: application/json"
-//-H "Authorization: Bearer your chatGPT key"
-//-d '{"model": "text-davinci-003", "prompt": "give me good song", "temperature": 0, "max_tokens": 7}'
+// curl https://api.openai.com/v1/completions
+// -H "Content-Type: application/json"
+// -H "Authorization: Bearer your chatGPT key"
+// -d '{"model": "text-davinci-003", "prompt": "give me good song", "temperature": 0, "max_tokens": 7}'
 func Completions(msg string) (string, error) {
-	var gptResponseBody *ChatGPTResponseBody
+	var gptResponseBody *ChatGPTChatResponseBody
 	var resErr error
 	for retry := 1; retry <= 3; retry++ {
 		if retry > 1 {
@@ -73,20 +110,25 @@ func Completions(msg string) (string, error) {
 	}
 	var reply string
 	if gptResponseBody != nil && len(gptResponseBody.Choices) > 0 {
-		reply = gptResponseBody.Choices[0].Text
+		reply = gptResponseBody.Choices[0].Message.Content
 	}
 	return reply, nil
 }
 
-func httpRequestCompletions(msg string, runtimes int) (*ChatGPTResponseBody, error) {
+func httpRequestCompletions(msg string, runtimes int) (*ChatGPTChatResponseBody, error) {
 	cfg := config.LoadConfig()
 	if cfg.ApiKey == "" {
 		return nil, errors.New("api key required")
 	}
 
-	requestBody := ChatGPTRequestBody{
+	chatMessage := ChatGPTChatMessage{
+		Role:    "user",
+		Content: msg,
+	}
+
+	requestBody := ChatGPTChatRequestBody{
 		Model:            cfg.Model,
-		Prompt:           msg,
+		Messages:         []ChatGPTChatMessage{{Role: "system", Content: cfg.SystemContent}, chatMessage},
 		MaxTokens:        cfg.MaxTokens,
 		Temperature:      cfg.Temperature,
 		TopP:             1,
@@ -100,7 +142,8 @@ func httpRequestCompletions(msg string, runtimes int) (*ChatGPTResponseBody, err
 
 	log.Printf("gpt request(%d) json: %s\n", runtimes, string(requestData))
 
-	req, err := http.NewRequest(http.MethodPost, "https://api.openai.com/v1/completions", bytes.NewBuffer(requestData))
+	// req, err := http.NewRequest(http.MethodPost, "https://api.openai.com/v1/completions", bytes.NewBuffer(requestData))
+	req, err := http.NewRequest(http.MethodPost, cfg.BaseUrl+"/v1/chat/completions", bytes.NewBuffer(requestData))
 	if err != nil {
 		return nil, fmt.Errorf("http.NewRequest error: %v", err)
 	}
@@ -121,7 +164,7 @@ func httpRequestCompletions(msg string, runtimes int) (*ChatGPTResponseBody, err
 
 	log.Printf("gpt response(%d) json: %s\n", runtimes, string(body))
 
-	gptResponseBody := &ChatGPTResponseBody{}
+	gptResponseBody := &ChatGPTChatResponseBody{}
 	err = json.Unmarshal(body, gptResponseBody)
 	if err != nil {
 		return nil, fmt.Errorf("json.Marshal responseBody error: %v", err)
